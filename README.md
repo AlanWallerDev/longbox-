@@ -1,0 +1,2 @@
+# longbox-
+Magic collection tracker 
