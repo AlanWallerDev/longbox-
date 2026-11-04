@@ -1,0 +1,14 @@
+{
+  "name": "Longbox",
+  "short_name": "Longbox",
+  "description": "A free personal Magic: The Gathering collection tracker.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14161f",
+  "theme_color": "#14161f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

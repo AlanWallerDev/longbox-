@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Longbox</title>
+<meta name="description" content="A free personal Magic: The Gathering collection tracker.">
+<meta name="theme-color" content="#14161f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout concept: a collector's sorting table. Value is always in view, the cards do the talking. */
+:root{
+  --bg:#eceef3; --surface:#f8f9fb; --raised:#ffffff; --line:#d3d7e0;
+  --fg:#1a1e2c; --muted:#5a6175; --accent:#8a5f0c; --accent-fg:#ffffff; --accent-soft:#f3e7cc;
+  --good:#1c7a4b; --bad:#b3362c; --shadow:0 1px 2px rgb(20 24 40/.12),0 6px 18px rgb(20 24 40/.08);
+  --display:"Marcellus",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14161f; --surface:#1c1f2c; --raised:#252938; --line:#343949;
+  --fg:#eceef4; --muted:#a2a8ba; --accent:#e5b64a; --accent-fg:#201702; --accent-soft:#3a3018;
+  --good:#58c78e; --bad:#ef8176; --shadow:0 1px 2px rgb(0 0 0/.4),0 8px 22px rgb(0 0 0/.3);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#14161f; --surface:#1c1f2c; --raised:#252938; --line:#343949;
+  --fg:#eceef4; --muted:#a2a8ba; --accent:#e5b64a; --accent-fg:#201702; --accent-soft:#3a3018;
+  --good:#58c78e; --bad:#ef8176; --shadow:0 1px 2px rgb(0 0 0/.4),0 8px 22px rgb(0 0 0/.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--body);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.2;margin:0;text-wrap:balance}
+h2{font-size:1.45rem} h3{font-size:1.1rem}
+p{margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-row{display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap;padding-block:10px}
+.brand{font:400 1.4rem/1 var(--display);letter-spacing:.02em}
+.worth{margin-left:auto;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;justify-content:flex-end;min-width:0}
+.worth b{font:400 1.5rem/1 var(--display);color:var(--accent);font-variant-numeric:tabular-nums}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs a{padding:8px 14px;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--accent)}
+main{padding-block:18px 56px}
+section.view{display:flex;flex-direction:column;gap:16px}
+
+.btn{appearance:none;border:1px solid var(--line);background:var(--raised);padding:8px 13px;border-radius:7px;font-weight:600;cursor:pointer;min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--fg)}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:.8rem;font-weight:600;color:var(--muted)}
+input[type=text],input[type=search],input[type=number],select,textarea{width:100%;background:var(--raised);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:38px;min-width:0}
+textarea{min-height:140px;resize:vertical;font-variant-numeric:tabular-nums}
+.check{display:inline-flex;align-items:center;gap:7px}
+
+.toolbar{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr)) auto;gap:10px;align-items:end}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;padding-top:10px}
+details.more>summary{cursor:pointer;font-weight:600;color:var(--muted);width:max-content}
+.summary-line{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;justify-self:start;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--raised);padding:8px 12px;cursor:pointer;min-height:36px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 14px}
+.tile{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tile:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.cardimg{position:relative;aspect-ratio:488/680;border-radius:4.75%/3.5%;background:var(--line);overflow:hidden;box-shadow:var(--shadow);max-width:100%}
+.cardimg img{display:block;width:100%;height:100%;object-fit:cover}
+.tile:hover .cardimg{transform:translateY(-2px)}
+@media (prefers-reduced-motion:no-preference){.cardimg{transition:transform .14s ease}}
+.badges{display:flex;flex-wrap:wrap;gap:4px}
+.tile-meta{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.tile-name{font-weight:600;font-size:.88rem;overflow-wrap:anywhere;line-height:1.25}
+.price{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.flag{display:inline-block;font-size:.72rem;font-weight:700;padding:0 6px;border-radius:99px;background:var(--accent-soft);color:var(--fg)}
+
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.78rem;color:var(--muted);position:relative}
+th button{all:unset;cursor:pointer;font-weight:700}
+th button:focus-visible{outline:2px solid var(--accent)}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--raised)}
+tbody tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+td.name{white-space:normal;font-weight:600;min-width:190px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;align-items:start}
+.defaults{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px}
+.suggest{display:flex;flex-direction:column;background:var(--raised);border:1px solid var(--line);border-radius:7px;max-height:260px;overflow:auto}
+.suggest button{all:unset;cursor:pointer;padding:9px 11px;border-bottom:1px solid var(--line)}
+.suggest button:last-child{border-bottom:0}
+.suggest button:hover,.suggest button:focus-visible{background:var(--accent-soft)}
+.prints{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px;max-height:520px;overflow:auto;padding:3px}
+.print{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:4px;font-size:.8rem;min-width:0}
+.print:focus-visible{outline:2px solid var(--accent);border-radius:6px}
+.print .tile-name{font-size:.8rem;font-weight:500}
+.recent{display:flex;flex-direction:column;gap:6px}
+.recent div{display:flex;justify-content:space-between;gap:10px;min-width:0}
+.recent .bar-row{display:grid;justify-content:stretch;grid-template-columns:minmax(0,9rem) minmax(0,1fr) auto;gap:10px;align-items:center}
+.bar-row .lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{display:block;height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.top-list{display:flex;flex-direction:column}
+.top-list button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.top-list button:last-child{border-bottom:0}
+.top-list button:focus-visible{outline:2px solid var(--accent)}
+.chart{width:100%;height:auto;display:block}
+
+.empty{padding:34px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;border:1px dashed var(--line);border-radius:10px}
+.notice{padding:10px 13px;border-radius:8px;background:var(--accent-soft)}
+.notice.bad{outline:1px solid var(--bad)}
+
+dialog{border:0;padding:0;background:var(--surface);color:var(--fg);border-radius:12px;box-shadow:var(--shadow);width:min(860px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+dialog::backdrop{background:rgb(8 10 16/.65)}
+.dlg{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:18px;padding:18px}
+.dlg-side{display:flex;flex-direction:column;gap:8px;min-width:0}
+.dlg-main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.dlg-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
+.pricegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px}
+.pricegrid div{background:var(--raised);padding:7px 9px;border-radius:7px;min-width:0}
+.pricegrid b{display:block;font-variant-numeric:tabular-nums}
+.oracle{white-space:pre-wrap;font-size:.9rem}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper output{min-width:2.2ch;text-align:center;font-weight:700}
+@media (max-width:640px){.dlg{grid-template-columns:minmax(0,1fr)}.dlg-side .cardimg{width:min(72%,260px);margin:0 auto}.toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.toolbar .span{grid-column:1/-1}}
+
+#scanDlg{width:min(560px,calc(100vw - 16px))}
+.scan{display:flex;flex-direction:column;gap:10px;padding:14px}
+.viewfinder{position:relative;background:#000;border-radius:9px;overflow:hidden;height:min(58dvh,520px)}
+.viewfinder video{width:100%;height:100%;object-fit:cover;display:block}
+.guide{position:absolute;left:50%;top:50%;height:90%;aspect-ratio:63/88;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:12px;box-shadow:0 0 0 999px rgb(0 0 0/.42)}
+.guide::before{content:"";position:absolute;left:5%;right:5%;top:3.8%;height:7.5%;border:1.5px dashed #ffd97a;border-radius:4px}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--fg);color:var(--bg);padding:9px 13px;border-radius:8px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);max-width:calc(100vw - 32px)}
+#toast button{all:unset;cursor:pointer;font-weight:700;text-decoration:underline}
+footer{padding-block:0 28px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <span class="brand">Longbox</span>
+      <div class="worth">
+        <b id="hTotal" class="num">–</b>
+        <span id="hSub" class="muted small"></span>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#collection" data-view="collection">Collection</a>
+      <a href="#add" data-view="add">Add cards</a>
+      <a href="#worth" data-view="worth">Worth</a>
+      <a href="#backup" data-view="backup">Backup</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="banner" class="notice bad" hidden style="margin-bottom:14px"></div>
+
+  <section class="view" id="v-collection" hidden>
+    <div class="toolbar">
+      <label class="field span"><span>Search name, type or rules text</span><input id="q" type="search" placeholder="e.g. goblin, flying, Sol Ring" autocomplete="off"></label>
+      <label class="field"><span>Sort by</span>
+        <select id="sort">
+          <option value="value">Price each</option><option value="total">Total value</option>
+          <option value="name">Name</option><option value="set">Set</option><option value="released">Release date</option>
+          <option value="cmc">Mana value</option><option value="rarity">Rarity</option><option value="qty">Copies</option><option value="added">Date added</option>
+        </select></label>
+      <label class="field"><span>Order</span><select id="dir"><option value="desc">High to low</option><option value="asc">Low to high</option></select></label>
+      <div class="seg" role="group" aria-label="Layout"><button id="vGrid" aria-pressed="true">Cards</button><button id="vList" aria-pressed="false">List</button></div>
+    </div>
+    <details class="more" id="filterBox">
+      <summary>Filters <span id="fCount"></span></summary>
+      <div class="filters">
+        <label class="field"><span>Binder or box</span><select id="fBinder"></select></label>
+        <label class="field"><span>Colour</span><select id="fColor">
+          <option value="">Any</option><option value="W">White</option><option value="U">Blue</option><option value="B">Black</option><option value="R">Red</option><option value="G">Green</option><option value="M">Multicolour</option><option value="C">Colourless</option></select></label>
+        <label class="field"><span>Card type</span><select id="fType">
+          <option value="">Any</option><option>Creature</option><option>Planeswalker</option><option>Instant</option><option>Sorcery</option><option>Enchantment</option><option>Artifact</option><option>Land</option><option>Battle</option></select></label>
+        <label class="field"><span>Rarity</span><select id="fRarity">
+          <option value="">Any</option><option value="mythic">Mythic</option><option value="rare">Rare</option><option value="uncommon">Uncommon</option><option value="common">Common</option><option value="special">Special</option><option value="bonus">Bonus</option></select></label>
+        <label class="field"><span>Set</span><select id="fSet"></select></label>
+        <label class="field"><span>Finish</span><select id="fFinish"><option value="">Any</option><option value="nonfoil">Non-foil</option><option value="foil">Foil</option><option value="etched">Etched</option></select></label>
+        <label class="field"><span>Price each, at least</span><input id="fMin" type="number" min="0" step="0.5" inputmode="decimal"></label>
+        <label class="field"><span>Price each, at most</span><input id="fMax" type="number" min="0" step="0.5" inputmode="decimal"></label>
+        <label class="check"><input id="fUnsure" type="checkbox"> Printing needs checking</label>
+        <button class="btn ghost" id="fClear">Clear filters</button>
+      </div>
+    </details>
+    <div class="summary-line small muted" id="resultLine"></div>
+    <div id="results"></div>
+    <div class="row" style="justify-content:center"><button class="btn" id="moreBtn" hidden>Show more</button></div>
+  </section>
+
+  <section class="view" id="v-add" hidden>
+    <div class="panel">
+      <h2>New cards go to</h2>
+      <div class="defaults">
+        <label class="field"><span>Binder or box</span><input id="aBinder" type="text" list="binderList" placeholder="e.g. Box 1"><datalist id="binderList"></datalist></label>
+        <label class="field"><span>Finish</span><select id="aFinish"><option value="nonfoil">Non-foil</option><option value="foil">Foil</option><option value="etched">Etched</option></select></label>
+        <label class="field"><span>Condition</span><select id="aCond"><option>NM</option><option>LP</option><option>MP</option><option>HP</option><option>DMG</option></select></label>
+        <label class="field"><span>Language</span><select id="aLang"><option value="en">English</option><option value="fr">French</option><option value="de">German</option><option value="es">Spanish</option><option value="it">Italian</option><option value="pt">Portuguese</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zhs">Chinese (Simplified)</option><option value="zht">Chinese (Traditional)</option><option value="ru">Russian</option></select></label>
+      </div>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <div class="row" style="justify-content:space-between"><h2>Find a card</h2><button class="btn primary" id="scanBtn">Scan with camera</button></div>
+        <label class="field"><span>Card name, or set code and number</span><input id="aq" type="search" placeholder="Lightning Bolt, or mh2 215" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <p class="small muted">The set code and number are printed on the bottom left of newer cards. Entering them picks the exact printing in one step.</p>
+        <div id="suggest" class="suggest" hidden></div>
+        <div id="addMsg" class="small" aria-live="polite"></div>
+        <div id="prints" class="prints" hidden></div>
+      </div>
+      <div class="panel">
+        <h2>Added this session</h2>
+        <div id="recent" class="recent small"><p class="muted">Cards you add will appear here.</p></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Paste a list</h2>
+      <p class="small muted">One card per line. Lines such as <code>4 Lightning Bolt</code>, <code>1x Sol Ring (CMM) 400</code> and <code>2 Counterspell [MH2] *F*</code> all work. If a line has no set, you'll need to check its printing later because the price depends on it.</p>
+      <label class="field"><span>Card list</span><textarea id="paste" spellcheck="false"></textarea></label>
+      <div class="row"><button class="btn primary" id="pasteBtn">Add these cards</button><span id="pasteMsg" class="small" aria-live="polite"></span></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-worth" hidden>
+    <div id="worthEmpty" class="empty" hidden><h2>Nothing to value yet</h2><p class="muted">Add a few cards and this page will show what your collection is worth.</p><a class="btn primary" href="#add">Add cards</a></div>
+    <div id="worthBody" class="two" hidden>
+      <div class="panel"><h2>Most valuable</h2><div id="wTop" class="top-list"></div></div>
+      <div class="panel"><h2>Where the value sits</h2><div id="wBands" class="recent"></div><p class="small muted">Grouped by the price of each card. Brackets show how many cards are in each group.</p></div>
+      <div class="panel"><h2>Value over time</h2><div id="wHist"></div></div>
+      <div class="panel"><h2>By binder or box</h2><div id="wBinder" class="recent"></div></div>
+      <div class="panel"><h2>By set</h2><div id="wSet" class="recent"></div></div>
+      <div class="panel"><h2>By rarity</h2><div id="wRarity" class="recent"></div></div>
+    </div>
+    <p class="small muted">Values use market prices from Scryfall, which come mostly from TCGplayer. They assume near-mint English copies, so they don't change for condition or language. A store buying from you will usually pay less.</p>
+  </section>
+
+  <section class="view" id="v-backup" hidden>
+    <div class="two">
+      <div class="panel">
+        <h2>Back up your collection</h2>
+        <p id="backupState" class="small"></p>
+        <p class="small muted">Your collection lives only in this browser. Save a backup regularly, and use it to move your cards to another device.</p>
+        <div class="row"><button class="btn primary" id="expJson">Save backup</button><button class="btn" id="expCsv">Export spreadsheet (CSV)</button></div>
+      </div>
+      <div class="panel">
+        <h2>Restore or import</h2>
+        <p class="small muted">Use a Longbox backup, or a CSV exported from an app or site. Cards are added to what's already here.</p>
+        <label class="field"><span>Backup or CSV file</span><input id="impFile" type="file" accept=".json,.csv,text/csv,application/json"></label>
+        <label class="check"><input id="impReplace" type="checkbox"> Replace my current collection (backups only)</label>
+        <div id="impMsg" class="small" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h2>Prices</h2>
+        <div class="defaults">
+          <label class="field"><span>Show values in</span><select id="sCur"><option value="CAD">Canadian dollars</option><option value="USD">US dollars</option></select></label>
+          <label class="field"><span>USD to CAD rate</span><input id="sRate" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="Automatic"></label>
+        </div>
+        <p id="rateInfo" class="small muted"></p>
+        <div class="row"><button class="btn" id="refreshBtn">Update prices now</button><span id="refreshMsg" class="small" aria-live="polite"></span></div>
+        <p class="small muted">Prices update once a day when you open Longbox. Scryfall only changes them once a day, so updating more often won't show anything new.</p>
+      </div>
+      <div class="panel">
+        <h2>Keep it on this device</h2>
+        <p id="persistState" class="small"></p>
+        <p class="small muted">On a phone, add Longbox to your home screen. Some phone browsers clear site data that hasn't been used for a while, and an installed app is safer.</p>
+        <div class="row"><button class="btn" id="persistBtn">Ask browser to keep my data</button></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Erase everything</h2>
+      <p class="small muted">Removes every card from this browser. This can't be undone unless you have a backup.</p>
+      <div class="row"><button class="btn danger" id="wipeBtn">Erase collection</button><button class="btn danger" id="wipeYes" hidden>Yes, erase all my cards</button><button class="btn" id="wipeNo" hidden>Keep my cards</button></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap small muted">Card data, prices and images come from <a href="https://scryfall.com" rel="noopener" target="_blank">Scryfall</a>. Longbox is a personal fan project, not affiliated with Scryfall or Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast.</footer>
+
+<dialog id="cardDlg" aria-label="Card details"><div id="cardBody"></div></dialog>
+
+<dialog id="scanDlg" aria-label="Scan a card">
+  <div class="scan">
+    <div class="dlg-head"><h2>Scan a card</h2><button class="btn ghost" id="scanClose">Close</button></div>
+    <div id="scanCam">
+      <div class="viewfinder"><video id="video" playsinline muted></video><div class="guide"></div></div>
+    </div>
+    <p id="scanMsg" class="small" aria-live="polite">Line up the card with the frame and keep its name inside the dashed box.</p>
+    <div class="row" id="scanActions">
+      <button class="btn primary" id="shutter">Read card</button>
+      <label class="btn">Use a photo<input id="scanFile" type="file" accept="image/*" capture="environment" hidden></label>
+    </div>
+    <div id="scanFix" hidden class="row"><label class="field" style="flex:1"><span>Card name</span><input id="scanName" type="text" autocomplete="off"></label><button class="btn" id="scanLookup">Look up</button><button class="btn ghost" id="scanAgain">Scan again</button></div>
+    <div id="scanPrints" class="prints" hidden></div>
+  </div>
+</dialog>
+
+<div id="toast" role="status" hidden></div>
+
+<script>
+"use strict";
+/* ---------- small helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const safeUrl = u => /^https:\/\//.test(u || "") ? u : "";
+const RARITY = {common:1, uncommon:2, rare:3, mythic:4, special:5, bonus:6};
+const COND = {NM:"Near mint", LP:"Lightly played", MP:"Moderately played", HP:"Heavily played", DMG:"Damaged"};
+const FINISH = {nonfoil:"Non-foil", foil:"Foil", etched:"Etched"};
+const PAGE = 60, DAY = 864e5;
+
+/* ---------- storage ---------- */
+const store = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("longbox", 1);
+      r.onupgradeneeded = () => { const d = r.result;
+        d.createObjectStore("entries", {keyPath:"id"});
+        d.createObjectStore("cards", {keyPath:"id"});
+        d.createObjectStore("meta", {keyPath:"k"}); };
+      r.onsuccess = () => { store.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  all(s) { return new Promise((res, rej) => { const q = store.db.transaction(s).objectStore(s).getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  write(s, fn) { if (!store.db) return Promise.resolve();
+    return new Promise((res, rej) => { const t = store.db.transaction(s, "readwrite"); fn(t.objectStore(s)); t.oncomplete = res; t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); },
+  put(s, v) { return store.write(s, o => (Array.isArray(v) ? v : [v]).forEach(x => o.put(x))); },
+  del(s, k) { return store.write(s, o => (Array.isArray(k) ? k : [k]).forEach(x => o.delete(x))); },
+  clear(s) { return store.write(s, o => o.clear()); },
+};
+
+/* ---------- state ---------- */
+const S = {
+  entries: new Map(), cards: new Map(),
+  meta: {cur:"CAD", rate:null, rateAuto:null, rateDate:null, rateManual:null, pricesAt:0, history:[], backupAt:0, changedAt:0, layout:"grid", addBinder:"", addFinish:"nonfoil", addCond:"NM", addLang:"en"},
+  shown: PAGE,
+};
+function saveMeta() { return store.put("meta", {k:"settings", v:S.meta}).catch(storageFail); }
+function storageFail(e) { banner("Your browser refused to save the last change, so it may be lost when you close this page. Save a backup from the Backup tab. (" + (e && e.message || "storage error") + ")"); }
+function banner(msg) { const b = $("banner"); b.textContent = msg; b.hidden = !msg; }
+function touched() { S.meta.changedAt = Date.now(); saveMeta(); }
+
+/* ---------- Scryfall ---------- */
+function gate(gap) { let last = Promise.resolve(); return fn => { const run = last.then(fn); last = run.catch(()=>{}).then(() => sleep(gap)); return run; }; }
+const slow = gate(550), fast = gate(120);
+const API = "https://api.scryfall.com";
+async function api(path, opt, g = slow, retried) {
+  const res = await g(() => fetch(API + path, opt));
+  if (res.status === 429 && !retried) { await sleep(2500); return api(path, opt, g, true); }
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Scryfall answered with error " + res.status);
+  return res.json();
+}
+function trim(c) {
+  const f = c.card_faces || [], front = c.image_uris || f[0]?.image_uris || {}, back = (!c.image_uris && f[1]?.image_uris) || null;
+  const colors = c.colors || [...new Set(f.flatMap(x => x.colors || []))];
+  return {id:c.id, name:c.name, set:c.set, setName:c.set_name, cn:c.collector_number, rarity:c.rarity, cmc:c.cmc ?? 0,
+    type:c.type_line || f[0]?.type_line || "", oracle:c.oracle_text ?? f.map(x => x.oracle_text).filter(Boolean).join("\n//\n"),
+    colors, img:front.normal || front.small || "", imgBack:back?.normal || "", finishes:c.finishes || ["nonfoil"],
+    prices:{usd:c.prices?.usd ?? null, usd_foil:c.prices?.usd_foil ?? null, usd_etched:c.prices?.usd_etched ?? null, eur:c.prices?.eur ?? null},
+    released:c.released_at || "", uri:c.scryfall_uri || "", tcg:c.purchase_uris?.tcgplayer || "", reserved:!!c.reserved, at:Date.now()};
+}
+async function remember(list) { list.forEach(c => S.cards.set(c.id, c)); await store.put("cards", list).catch(storageFail); }
+async function printingsOf(name) {
+  const q = encodeURIComponent('!"' + name.replace(/"/g, "") + '"');
+  let page = await api(`/cards/search?q=${q}&unique=prints&order=released&dir=desc`), out = [];
+  for (let i = 0; page && i < 3; i++) {
+    out.push(...page.data);
+    if (!page.has_more) break;
+    page = await api(page.next_page.replace(API, ""));
+  }
+  return out.map(trim);
+}
+async function byIdentifiers(ids, onProgress) {
+  const found = [], missing = [];
+  for (let i = 0; i < ids.length; i += 75) {
+    const chunk = ids.slice(i, i + 75);
+    const r = await api("/cards/collection", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({identifiers:chunk})});
+    if (r) { found.push(...r.data); missing.push(...(r.not_found || [])); }
+    onProgress && onProgress(Math.min(i + 75, ids.length), ids.length);
+  }
+  return {found, missing};
+}
+
+/* ---------- money ---------- */
+const rate = () => S.meta.rateManual || S.meta.rateAuto || null;
+const curNow = () => (S.meta.cur === "CAD" && rate()) ? "CAD" : "USD";
+const toShown = usd => curNow() === "CAD" ? usd * rate() : usd;
+const fromShown = v => curNow() === "CAD" ? v / rate() : v;
+function money(usd, plain) {
+  if (usd == null) return "no price";
+  const v = toShown(usd), s = v.toLocaleString("en-CA", {minimumFractionDigits:2, maximumFractionDigits:2});
+  return plain ? s : "$" + s;
+}
+function unitUsd(e) {
+  const c = S.cards.get(e.sid); if (!c) return null;
+  const k = e.finish === "foil" ? "usd_foil" : e.finish === "etched" ? "usd_etched" : "usd";
+  const p = c.prices[k]; return p == null ? null : parseFloat(p);
+}
+function totals(list = [...S.entries.values()]) {
+  let usd = 0, cards = 0, unpriced = 0;
+  for (const e of list) { cards += e.qty; const u = unitUsd(e); if (u == null) unpriced += e.qty; else usd += u * e.qty; }
+  return {usd, cards, unpriced, printings:list.length};
+}
+async function fetchRate() {
+  if (S.meta.rateAt && Date.now() - S.meta.rateAt < DAY && S.meta.rateAuto) return;
+  const sources = [
+    async () => { const j = await (await fetch("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1")).json();
+      const o = j.observations.at(-1); return {r:parseFloat(o.FXUSDCAD.v), d:o.d, from:"Bank of Canada"}; },
+    async () => { const j = await (await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=CAD")).json();
+      return {r:j.rates.CAD, d:j.date, from:"Frankfurter"}; },
+  ];
+  for (const src of sources) {
+    try { const x = await src(); if (x.r > 0) { Object.assign(S.meta, {rateAuto:x.r, rateDate:x.d, rateFrom:x.from, rateAt:Date.now()}); await saveMeta(); return; } } catch {}
+  }
+}
+
+/* ---------- changing the collection ---------- */
+function sameKey(a, b) { return a.sid === b.sid && a.finish === b.finish && a.cond === b.cond && a.lang === b.lang && (a.binder || "") === (b.binder || ""); }
+function addEntry(card, o = {}) {
+  let finish = o.finish || S.meta.addFinish;
+  if (!card.finishes.includes(finish)) finish = card.finishes[0] || "nonfoil";
+  const draft = {sid:card.id, finish, cond:o.cond || S.meta.addCond, lang:o.lang || S.meta.addLang, binder:o.binder ?? S.meta.addBinder, note:o.note || "", unsure:!!o.unsure};
+  const qty = Math.max(1, o.qty || 1);
+  let hit = null;
+  for (const e of S.entries.values()) if (sameKey(e, draft)) { hit = e; break; }
+  if (hit) { hit.qty += qty; hit.unsure = hit.unsure && draft.unsure; }
+  else { hit = {...draft, id:uid(), qty, added:o.added || new Date().toISOString()}; S.entries.set(hit.id, hit); }
+  store.put("entries", hit).catch(storageFail);
+  return {entry:hit, finish};
+}
+function removeEntry(id) { const e = S.entries.get(id); if (!e) return; S.entries.delete(id); store.del("entries", id).catch(storageFail); touched(); renderAll();
+  toast(`Removed ${S.cards.get(e.sid)?.name || "card"}`, "Undo", () => { S.entries.set(e.id, e); store.put("entries", e).catch(storageFail); touched(); renderAll(); }); }
+function updateEntry(e) { store.put("entries", e).catch(storageFail); touched(); }
+
+let toastT;
+function toast(msg, action, fn) {
+  const t = $("toast"); t.innerHTML = ""; const s = document.createElement("span"); s.textContent = msg; t.append(s);
+  if (action) { const b = document.createElement("button"); b.textContent = action; b.onclick = () => { t.hidden = true; fn(); }; t.append(b); }
+  t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 6000);
+}
+
+/* ---------- price refresh ---------- */
+function recordHistory() {
+  const t = totals(), day = new Date().toISOString().slice(0, 10), h = S.meta.history;
+  const row = {d:day, usd:+t.usd.toFixed(2), cards:t.cards};
+  if (h.length && h.at(-1).d === day) h[h.length - 1] = row; else h.push(row);
+  if (h.length > 1500) h.splice(0, h.length - 1500);
+}
+let refreshing = false;
+async function refreshPrices(manual) {
+  const ids = [...new Set([...S.entries.values()].map(e => e.sid))];
+  if (refreshing || !ids.length) { if (manual && !ids.length) $("refreshMsg").textContent = "Add some cards first."; return; }
+  refreshing = true; $("refreshBtn").disabled = true;
+  try {
+    const {found} = await byIdentifiers(ids.map(id => ({id})), (a, b) => { $("refreshMsg").textContent = `Updated ${a} of ${b}`; });
+    await remember(found.map(trim));
+    S.meta.pricesAt = Date.now(); recordHistory(); await saveMeta();
+    $("refreshMsg").textContent = "Prices are up to date."; renderAll();
+  } catch (e) { $("refreshMsg").textContent = "Couldn't reach Scryfall. Check your connection and try again."; if (manual) toast("Prices didn't update. Check your connection."); }
+  refreshing = false; $("refreshBtn").disabled = false;
+}
+
+/* ---------- collection view ---------- */
+function buildFilterOptions() {
+  const binders = new Map(), sets = new Map();
+  for (const e of S.entries.values()) { const c = S.cards.get(e.sid); if (e.binder) binders.set(e.binder, 1); if (c) sets.set(c.set, c.setName); }
+  const keep = (el, html) => { const v = el.value; el.innerHTML = html; el.value = [...el.options].some(o => o.value === v) ? v : ""; };
+  const bl = [...binders.keys()].sort((a, b) => a.localeCompare(b));
+  keep($("fBinder"), `<option value="">Any</option><option value="__none">No binder</option>` + bl.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join(""));
+  keep($("fSet"), `<option value="">Any</option>` + [...sets].sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join(""));
+  $("binderList").innerHTML = bl.map(b => `<option value="${esc(b)}"></option>`).join("");
+}
+function typeOf(c) { return c.type.split("//")[0]; }
+function currentList() {
+  const q = $("q").value.trim().toLowerCase(), terms = q ? q.split(/\s+/) : [];
+  const fb = $("fBinder").value, fc = $("fColor").value, ft = $("fType").value, fr = $("fRarity").value, fs = $("fSet").value, ff = $("fFinish").value, un = $("fUnsure").checked;
+  const min = parseFloat($("fMin").value), max = parseFloat($("fMax").value);
+  const out = [];
+  for (const e of S.entries.values()) {
+    const c = S.cards.get(e.sid); if (!c) continue;
+    if (fb && (fb === "__none" ? e.binder : e.binder !== fb)) continue;
+    if (fr && c.rarity !== fr) continue;
+    if (fs && c.set !== fs) continue;
+    if (ff && e.finish !== ff) continue;
+    if (un && !e.unsure) continue;
+    if (ft && !typeOf(c).includes(ft)) continue;
+    if (fc) { const n = c.colors.length; if (fc === "M" ? n < 2 : fc === "C" ? n !== 0 : !c.colors.includes(fc)) continue; }
+    const u = unitUsd(e);
+    if (!isNaN(min) && (u == null || toShown(u) < min)) continue;
+    if (!isNaN(max) && (u == null || toShown(u) > max)) continue;
+    if (terms.length) { const hay = (c.name + " " + c.type + " " + c.oracle + " " + c.setName + " " + e.note).toLowerCase(); if (!terms.every(t => hay.includes(t))) continue; }
+    out.push(e);
+  }
+  const k = $("sort").value, sign = $("dir").value === "asc" ? 1 : -1, name = e => S.cards.get(e.sid).name;
+  const val = {
+    value:e => unitUsd(e) ?? -1, total:e => (unitUsd(e) ?? -1) * e.qty, name, set:e => S.cards.get(e.sid).setName, released:e => S.cards.get(e.sid).released,
+    cmc:e => S.cards.get(e.sid).cmc, rarity:e => RARITY[S.cards.get(e.sid).rarity] || 0, qty:e => e.qty, added:e => e.added,
+  }[k];
+  const textual = k === "name" || k === "set";
+  out.sort((a, b) => { const x = val(a), y = val(b); const r = typeof x === "string" ? x.localeCompare(y) : x - y;
+    return (textual ? (sign > 0 ? r : -r) : sign * r) || name(a).localeCompare(name(b)); });
+  return out;
+}
+function tile(e) {
+  const c = S.cards.get(e.sid), u = unitUsd(e);
+  return `<button class="tile" data-open="${esc(e.id)}"><div class="cardimg"><img loading="lazy" src="${esc(safeUrl(c.img))}" alt="${esc(c.name)}"></div>
+  <div class="tile-meta"><span class="tile-name">${esc(c.name)}</span><span class="price">${esc(money(u))}</span></div>
+  <div class="small muted">${esc(c.setName)}</div>
+  ${e.qty > 1 || e.finish !== "nonfoil" || e.unsure ? `<div class="badges">${e.qty > 1 ? `<span class="flag">×${e.qty}</span>` : ""}${e.finish !== "nonfoil" ? `<span class="flag">${esc(FINISH[e.finish])}</span>` : ""}${e.unsure ? '<span class="flag">check printing</span>' : ""}</div>` : ""}</button>`;
+}
+function row(e) {
+  const c = S.cards.get(e.sid), u = unitUsd(e);
+  return `<tr data-open="${esc(e.id)}" tabindex="0"><td class="name">${esc(c.name)}${e.unsure ? ' <span class="flag">check printing</span>' : ""}</td><td>${esc(c.setName)} <span class="muted">#${esc(c.cn)}</span></td><td>${esc(c.rarity)}</td><td>${esc(FINISH[e.finish])}</td><td>${esc(e.cond)}</td><td>${esc(e.binder)}</td><td class="r">${e.qty}</td><td class="r">${esc(money(u))}</td><td class="r">${esc(u == null ? "no price" : money(u * e.qty))}</td></tr>`;
+}
+function renderCollection() {
+  const list = currentList(), t = totals(list), has = S.entries.size > 0, out = $("results");
+  const active = ["fBinder","fColor","fType","fRarity","fSet","fFinish","fMin","fMax"].filter(i => $(i).value).length + ($("fUnsure").checked ? 1 : 0);
+  $("fCount").textContent = active ? `(${active} on)` : "";
+  $("resultLine").textContent = has ? `${t.cards.toLocaleString()} ${t.cards === 1 ? "card" : "cards"} shown, worth ${money(t.usd)} ${curNow()}${t.unpriced ? `, plus ${t.unpriced} with no price` : ""}` : "";
+  if (!has) { out.innerHTML = `<div class="empty"><h2>Your longbox is empty</h2><p class="muted">Scan cards with your camera, search by name, or paste a list.</p><a class="btn primary" href="#add">Add your first cards</a></div>`; $("moreBtn").hidden = true; return; }
+  if (!list.length) { out.innerHTML = `<div class="empty"><h3>No cards match</h3><p class="muted">Try a different search, or clear your filters.</p></div>`; $("moreBtn").hidden = true; return; }
+  const show = list.slice(0, S.shown);
+  if (S.meta.layout === "list") {
+    const th = (k, l, r) => `<th class="${r ? "r" : ""}">${k ? `<button data-sort="${k}">${l}</button>` : l}</th>`;
+    out.innerHTML = `<div class="table-scroll"><table><thead><tr>${th("name","Name")}${th("set","Set")}${th("rarity","Rarity")}${th("","Finish")}${th("","Condition")}${th("","Binder")}${th("qty","Copies",1)}${th("value","Each",1)}${th("total","Total",1)}</tr></thead><tbody>${show.map(row).join("")}</tbody></table></div>`;
+  } else out.innerHTML = `<div class="grid">${show.map(tile).join("")}</div>`;
+  $("moreBtn").hidden = list.length <= S.shown;
+  $("moreBtn").textContent = `Show more (${(list.length - S.shown).toLocaleString()} left)`;
+}
+function renderHeader() {
+  const t = totals(), ago = S.meta.pricesAt ? Math.floor((Date.now() - S.meta.pricesAt) / DAY) : null;
+  $("hTotal").textContent = money(t.usd) + " " + curNow();
+  $("hSub").textContent = `${t.cards.toLocaleString()} ${t.cards === 1 ? "card" : "cards"}` + (t.unpriced ? ` · ${t.unpriced} unpriced` : "") + (ago ? ` · prices ${ago}d old` : "");
+}
+
+/* ---------- worth view ---------- */
+function bars(el, rows) {
+  const top = Math.max(...rows.map(r => r.v), 0.01);
+  el.innerHTML = rows.map(r => `<div class="bar-row"><span class="lab">${esc(r.l)}</span><span class="bar"><i style="width:${(r.v / top * 100).toFixed(1)}%"></i></span><span class="num">${esc(money(r.v))}</span></div>`).join("");
+}
+function groupBy(fn) {
+  const m = new Map();
+  for (const e of S.entries.values()) { const u = unitUsd(e); if (u == null) continue; const k = fn(e); m.set(k, (m.get(k) || 0) + u * e.qty); }
+  return [...m].map(([l, v]) => ({l, v})).sort((a, b) => b.v - a.v);
+}
+function renderWorth() {
+  const has = S.entries.size > 0; $("worthEmpty").hidden = has; $("worthBody").hidden = !has; if (!has) return;
+  const top = [...S.entries.values()].filter(e => unitUsd(e) != null).sort((a, b) => unitUsd(b) - unitUsd(a)).slice(0, 10);
+  $("wTop").innerHTML = top.map(e => { const c = S.cards.get(e.sid); return `<button data-open="${esc(e.id)}"><span>${esc(c.name)} <span class="muted small">${esc(c.set.toUpperCase())}${e.finish !== "nonfoil" ? " " + esc(FINISH[e.finish]) : ""}</span></span><span class="price">${esc(money(unitUsd(e)))}</span></button>`; }).join("") || `<p class="muted small">None of your cards have a price yet.</p>`;
+  const cuts = [[0,.5,"Under $0.50"],[.5,2,"$0.50 to $2"],[2,10,"$2 to $10"],[10,50,"$10 to $50"],[50,Infinity,"$50 and up"]], b = cuts.map(c => ({l:c[2], v:0, n:0}));
+  for (const e of S.entries.values()) { const u = unitUsd(e); if (u == null) continue; const v = toShown(u), i = cuts.findIndex(c => v >= c[0] && v < c[1]); b[i].v += u * e.qty; b[i].n += e.qty; }
+  bars($("wBands"), b.map(x => ({l:`${x.l} (${x.n})`, v:x.v})));
+  bars($("wBinder"), groupBy(e => e.binder || "No binder").slice(0, 10));
+  bars($("wSet"), groupBy(e => S.cards.get(e.sid).setName).slice(0, 10));
+  bars($("wRarity"), groupBy(e => { const r = S.cards.get(e.sid).rarity; return r[0].toUpperCase() + r.slice(1); }));
+  const h = S.meta.history;
+  if (h.length < 2) { $("wHist").innerHTML = `<p class="small muted">A line appears here once Longbox has prices from two different days.</p>`; return; }
+  const W = 560, H = 190, L = 62, R = 14, T = 12, B = 26, ys = h.map(p => p.usd), lo = Math.min(...ys), hi = Math.max(...ys), span = hi - lo || 1;
+  const t0 = Date.parse(h[0].d), t1 = Date.parse(h.at(-1).d), X = d => L + (Date.parse(d) - t0) / (t1 - t0) * (W - L - R), Y = v => T + (hi - v) / span * (H - T - B);
+  const pts = h.map(p => `${X(p.d).toFixed(1)},${Y(p.usd).toFixed(1)}`).join(" ");
+  $("wHist").innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Collection value from ${h[0].d} to ${h.at(-1).d}">
+    <line x1="${L}" x2="${W - R}" y1="${Y(hi)}" y2="${Y(hi)}" stroke="var(--line)"/><line x1="${L}" x2="${W - R}" y1="${Y(lo)}" y2="${Y(lo)}" stroke="var(--line)"/>
+    <text x="${L - 6}" y="${Y(hi) + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${esc(money(hi))}</text><text x="${L - 6}" y="${Y(lo) + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${esc(money(lo))}</text>
+    <text x="${L}" y="${H - 6}" font-size="12" fill="var(--muted)">${h[0].d}</text><text x="${W - R}" y="${H - 6}" text-anchor="end" font-size="12" fill="var(--muted)">${h.at(-1).d}</text>
+    <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${pts}"/><circle cx="${X(h.at(-1).d)}" cy="${Y(h.at(-1).usd)}" r="4" fill="var(--accent)"/></svg>
+    <p class="small muted">Rises here can come from adding cards as well as from prices going up.</p>`;
+}
+
+/* ---------- card detail ---------- */
+let openId = null, showBack = false, reprint = null;
+function openCard(id) { openId = id; showBack = false; reprint = null; renderCard(); const d = $("cardDlg"); if (!d.open) d.showModal(); }
+function renderCard() {
+  const e = S.entries.get(openId); if (!e) { $("cardDlg").close(); return; }
+  const c = S.cards.get(e.sid), u = unitUsd(e), opts = o => Object.entries(o);
+  $("cardBody").innerHTML = `<div class="dlg">
+   <div class="dlg-side"><div class="cardimg"><img src="${esc(safeUrl(showBack ? c.imgBack : c.img))}" alt="${esc(c.name)}"></div>
+    ${c.imgBack ? `<button class="btn" data-a="flip">Turn card over</button>` : ""}</div>
+   <div class="dlg-main">
+    <div class="dlg-head"><div><h2>${esc(c.name)}</h2><p class="muted small">${esc(c.setName)} · #${esc(c.cn)} · ${esc(c.rarity)}${c.released ? " · " + esc(c.released.slice(0, 4)) : ""}${c.reserved ? " · Reserved List" : ""}</p></div><button class="btn ghost" data-a="close">Close</button></div>
+    ${e.unsure ? `<div class="notice small">This printing is a guess because your list didn't name a set. Pick the right one, or confirm this one.<div class="row" style="margin-top:6px"><button class="btn" data-a="reprint">Choose printing</button><button class="btn" data-a="confirm">This one is right</button></div></div>` : ""}
+    <div class="pricegrid">
+     <div><span class="small muted">Each (${esc(FINISH[e.finish])})</span><b>${esc(money(u))}</b></div>
+     <div><span class="small muted">All copies</span><b>${esc(u == null ? "no price" : money(u * e.qty))}</b></div>
+     ${c.finishes.filter(f => f !== e.finish).map(f => { const p = c.prices[f === "foil" ? "usd_foil" : f === "etched" ? "usd_etched" : "usd"]; return `<div><span class="small muted">${esc(FINISH[f])}</span><b>${esc(money(p == null ? null : parseFloat(p)))}</b></div>`; }).join("")}
+    </div>
+    <div class="defaults">
+     <div class="field"><span>Copies</span><div class="stepper"><button class="btn" data-a="minus" aria-label="One fewer copy">−</button><output class="num">${e.qty}</output><button class="btn" data-a="plus" aria-label="One more copy">+</button></div></div>
+     <label class="field"><span>Finish</span><select data-f="finish">${c.finishes.map(f => `<option value="${esc(f)}" ${f === e.finish ? "selected" : ""}>${esc(FINISH[f] || f)}</option>`).join("")}</select></label>
+     <label class="field"><span>Condition</span><select data-f="cond">${opts(COND).map(([k, v]) => `<option value="${k}" ${k === e.cond ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+     <label class="field"><span>Binder or box</span><input data-f="binder" type="text" list="binderList" value="${esc(e.binder)}"></label>
+    </div>
+    <label class="field"><span>Notes</span><input data-f="note" type="text" value="${esc(e.note)}"></label>
+    <p class="muted small">${esc(c.type)}</p>
+    ${c.oracle ? `<p class="oracle">${esc(c.oracle)}</p>` : ""}
+    <div class="row">
+     ${!e.unsure ? `<button class="btn" data-a="reprint">Change printing</button>` : ""}
+     ${c.uri ? `<a class="btn" href="${esc(safeUrl(c.uri))}" target="_blank" rel="noopener">View on Scryfall</a>` : ""}
+     ${c.tcg ? `<a class="btn" href="${esc(safeUrl(c.tcg))}" target="_blank" rel="noopener">Compare on TCGplayer</a>` : ""}
+     <button class="btn danger" data-a="remove">Remove</button>
+    </div>
+    <div id="reprintBox" hidden class="prints"></div>
+   </div></div>`;
+}
+$("cardBody").addEventListener("click", async ev => {
+  const a = ev.target.closest("[data-a]")?.dataset.a, e = S.entries.get(openId); if (!a || !e) return;
+  if (a === "close") $("cardDlg").close();
+  if (a === "flip") { showBack = !showBack; renderCard(); }
+  if (a === "plus" || a === "minus") { e.qty = Math.max(1, e.qty + (a === "plus" ? 1 : -1)); updateEntry(e); renderCard(); renderAll(true); }
+  if (a === "remove") { $("cardDlg").close(); removeEntry(e.id); }
+  if (a === "confirm") { e.unsure = false; updateEntry(e); renderCard(); renderAll(true); }
+  if (a === "reprint") {
+    const box = $("reprintBox"), c = S.cards.get(e.sid); box.hidden = false; box.textContent = "Loading printings…";
+    try { const list = await printingsOf(c.name); await remember(list); paintPrints(box, list, card => {
+        e.sid = card.id; e.unsure = false; if (!card.finishes.includes(e.finish)) e.finish = card.finishes[0]; updateEntry(e); renderCard(); renderAll(true); toast("Printing updated"); }); }
+    catch { box.textContent = "Couldn't load printings. Check your connection and try again."; }
+  }
+});
+$("cardBody").addEventListener("change", ev => {
+  const f = ev.target.dataset.f, e = S.entries.get(openId); if (!f || !e) return;
+  e[f] = ev.target.value.trim(); updateEntry(e); renderCard(); renderAll(true);
+});
+$("cardDlg").addEventListener("click", ev => { if (ev.target === $("cardDlg")) $("cardDlg").close(); });
+
+/* ---------- adding cards ---------- */
+function paintPrints(box, list, pick, firstId) {
+  box.hidden = false;
+  const ordered = firstId ? [...list].sort((a, b) => (b.id === firstId) - (a.id === firstId)) : list;
+  box.innerHTML = ordered.map(c => { const f = S.meta.addFinish, k = f === "foil" ? "usd_foil" : f === "etched" ? "usd_etched" : "usd", p = c.prices[k] ?? c.prices.usd ?? c.prices.usd_foil;
+    return `<button class="print" data-id="${esc(c.id)}"><div class="cardimg"><img loading="lazy" src="${esc(safeUrl(c.img))}" alt=""></div><span class="tile-name">${esc(c.setName)}</span><span class="muted">#${esc(c.cn)} · ${esc(c.released.slice(0, 4))}</span><span class="price">${esc(money(p == null ? null : parseFloat(p)))}</span></button>`; }).join("");
+  box.querySelectorAll(".print").forEach(b => b.onclick = () => pick(S.cards.get(b.dataset.id)));
+}
+function logRecent(card, finish) {
+  const r = $("recent"); if (r.querySelector("p")) r.innerHTML = "";
+  const d = document.createElement("div"), k = finish === "foil" ? "usd_foil" : finish === "etched" ? "usd_etched" : "usd", p = card.prices[k];
+  const a = document.createElement("span"); a.textContent = `${card.name} (${card.set.toUpperCase()})${finish !== "nonfoil" ? " " + FINISH[finish] : ""}`;
+  const b = document.createElement("span"); b.className = "price"; b.textContent = money(p == null ? null : parseFloat(p));
+  d.append(a, b); r.prepend(d); while (r.children.length > 14) r.lastChild.remove();
+}
+function addAndLog(card, o) { const {finish} = addEntry(card, o); touched(); ensureHistory(); logRecent(card, finish); renderAll(true); return finish; }
+function ensureHistory() { if (!S.meta.pricesAt) S.meta.pricesAt = Date.now(); recordHistory(); saveMeta(); }
+function resetAdd() { $("aq").value = ""; $("suggest").hidden = true; $("prints").hidden = true; $("aq").focus(); }
+async function choose(name) {
+  $("suggest").hidden = true; $("addMsg").textContent = "Loading printings…";
+  try {
+    const list = await printingsOf(name);
+    if (!list.length) { $("addMsg").textContent = `Couldn't find "${name}".`; return; }
+    await remember(list); $("addMsg").textContent = `${name}: pick your printing.`;
+    paintPrints($("prints"), list, card => { const f = addAndLog(card); $("addMsg").textContent = `Added ${card.name}, ${card.setName}${f !== S.meta.addFinish ? ` (only comes in ${FINISH[f] || f})` : ""}.`; resetAdd(); });
+  } catch { $("addMsg").textContent = "Couldn't reach Scryfall. Check your connection and try again."; }
+}
+const SETNUM = /^([a-z0-9]{2,6})\s+#?([0-9]+[a-z★†]*)$/i;
+async function bySetNumber(set, num) {
+  const c = await api(`/cards/${encodeURIComponent(set.toLowerCase())}/${encodeURIComponent(num)}`, undefined, fast);
+  return c ? trim(c) : null;
+}
+let acT, acN = 0;
+$("aq").addEventListener("input", () => {
+  clearTimeout(acT); const q = $("aq").value.trim(), n = ++acN; $("addMsg").textContent = "";
+  if (q.length < 2) { $("suggest").hidden = true; return; }
+  acT = setTimeout(async () => {
+    try {
+      const r = await api(`/cards/autocomplete?q=${encodeURIComponent(q)}`, undefined, fast);
+      if (n !== acN) return;
+      const list = r?.data || [], box = $("suggest");
+      box.hidden = !list.length;
+      box.innerHTML = list.map(x => `<button data-n="${esc(x)}">${esc(x)}</button>`).join("");
+      box.querySelectorAll("button").forEach(b => b.onclick = () => { $("aq").value = b.dataset.n; choose(b.dataset.n); });
+    } catch {}
+  }, 180);
+});
+$("aq").addEventListener("keydown", async ev => {
+  if (ev.key === "ArrowDown") { const b = $("suggest").querySelector("button"); if (b) { ev.preventDefault(); b.focus(); } return; }
+  if (ev.key !== "Enter") return; ev.preventDefault();
+  clearTimeout(acT); acN++;
+  const q = $("aq").value.trim(), m = q.match(SETNUM);
+  if (m) {
+    try { const c = await bySetNumber(m[1], m[2]);
+      if (c) { await remember([c]); const f = addAndLog(c); $("addMsg").textContent = `Added ${c.name}, ${c.setName} #${c.cn}${f !== S.meta.addFinish ? ` (only comes in ${FINISH[f] || f})` : ""}.`; resetAdd(); return; }
+    } catch { $("addMsg").textContent = "Couldn't reach Scryfall. Check your connection and try again."; return; }
+  }
+  const first = $("suggest").querySelector("button");
+  if (first && !$("suggest").hidden) { $("aq").value = first.dataset.n; choose(first.dataset.n); }
+  else if (q) { try { const c = await api(`/cards/named?fuzzy=${encodeURIComponent(q)}`); if (c) { $("aq").value = c.name; choose(c.name); } else $("addMsg").textContent = `Couldn't find a card matching "${q}".`; } catch { $("addMsg").textContent = "Couldn't reach Scryfall. Check your connection and try again."; } }
+});
+$("suggest").addEventListener("keydown", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  if (ev.key === "ArrowDown") { ev.preventDefault(); b.nextElementSibling?.focus(); }
+  if (ev.key === "ArrowUp") { ev.preventDefault(); (b.previousElementSibling || $("aq")).focus(); }
+  if (ev.key === "Enter") { ev.preventDefault(); b.click(); }
+});
+
+/* list and CSV parsing */
+function parseList(text) {
+  const out = [];
+  for (let line of text.split(/\r?\n/)) {
+    line = line.trim();
+    if (!line || /^(\/\/|#)/.test(line) || /^(deck|sideboard|commander|companion|maybeboard)\s*:?$/i.test(line)) continue;
+    let foil = null;
+    line = line.replace(/\*(F|E)\*/i, (_, x) => { foil = x.toUpperCase() === "F" ? "foil" : "etched"; return ""; }).trim();
+    const q = line.match(/^(\d+)\s*x?\s+(.+)$/i), qty = q ? parseInt(q[1], 10) : 1; if (q) line = q[2];
+    const sn = line.match(/^(.*?)\s*[(\[]([a-z0-9]{2,6})[)\]]\s*([0-9]+[a-z★†]*)?\s*$/i);
+    if (sn) out.push({name:sn[1].trim(), set:sn[2].toLowerCase(), cn:sn[3] || null, qty, finish:foil});
+    else out.push({name:line, set:null, cn:null, qty, finish:foil});
+  }
+  return out;
+}
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  text = text.replace(/^﻿/, "");
+  for (let i = 0; i < text.length; i++) { const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if (c !== "\r") cell += c; }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim()));
+}
+function csvToItems(text) {
+  const rows = parseCSV(text); if (rows.length < 2) return [];
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  const col = (...n) => { for (const x of n) { const i = head.indexOf(x); if (i >= 0) return i; } return -1; };
+  const c = {name:col("name","card name","card"), set:col("set code","set","edition code","edition","set_code"), cn:col("collector number","collector_number","card number","number","collector #"),
+    qty:col("quantity","count","qty","amount","copies"), foil:col("foil","finish","printing"), id:col("scryfall id","scryfall_id"), binder:col("binder name","binder","folder","folder name","location"), cond:col("condition"), lang:col("language","lang"), note:col("note","notes")};
+  if (c.name < 0 && c.id < 0) throw new Error("I couldn't find a card name column in that file.");
+  const cond = s => { s = (s || "").toLowerCase().replace(/[_-]/g, " ").trim(); return {"near mint":"NM",nm:"NM",mint:"NM","lightly played":"LP",lp:"LP",excellent:"LP",good:"MP","moderately played":"MP",mp:"MP",played:"HP","heavily played":"HP",hp:"HP",poor:"DMG",damaged:"DMG",dmg:"DMG"}[s] || "NM"; };
+  const lang = s => { s = (s || "").toLowerCase().trim(); return {english:"en",french:"fr",german:"de",spanish:"es",italian:"it",portuguese:"pt",japanese:"ja",korean:"ko",russian:"ru"}[s] || s || "en"; };
+  const fin = s => { s = (s || "").toLowerCase().trim(); if (/etch/.test(s)) return "etched"; return ["foil","true","yes","1"].includes(s) ? "foil" : "nonfoil"; };
+  const get = (r, i) => i >= 0 ? (r[i] || "").trim() : "";
+  return rows.slice(1).map(r => ({name:get(r, c.name), set:get(r, c.set).toLowerCase() || null, cn:get(r, c.cn) || null, qty:parseInt(get(r, c.qty), 10) || 1,
+    finish:fin(get(r, c.foil)), sid:/^[0-9a-f-]{36}$/i.test(get(r, c.id)) ? get(r, c.id).toLowerCase() : null, binder:get(r, c.binder) || undefined, cond:cond(get(r, c.cond)), lang:lang(get(r, c.lang)), note:get(r, c.note)})).filter(x => x.name || x.sid);
+}
+const idFor = x => x.sid ? {id:x.sid} : (x.set && x.cn) ? {set:x.set, collector_number:x.cn} : x.set ? {name:x.name, set:x.set} : {name:x.name};
+function matchFound(x, found) {
+  const n = (x.name || "").toLowerCase();
+  return found.find(c => x.sid ? c.id === x.sid
+    : x.set && x.cn ? c.set === x.set && c.collector_number === x.cn
+    : (c.name.toLowerCase() === n || c.name.toLowerCase().split(" // ")[0] === n) && (!x.set || c.set === x.set));
+}
+async function importItems(items, msg) {
+  const uniq = new Map(); items.forEach(x => uniq.set(JSON.stringify(idFor(x)), idFor(x)));
+  const {found} = await byIdentifiers([...uniq.values()], (a, b) => msg(`Looked up ${a} of ${b}…`));
+  const cards = found.map(trim); await remember(cards);
+  let added = 0; const failed = [];
+  for (const x of items) {
+    const raw = matchFound(x, found);
+    if (!raw) { failed.push(x.name || x.sid); continue; }
+    const unsure = !x.sid && !x.set;
+    addEntry(S.cards.get(raw.id), {qty:x.qty, finish:x.finish || undefined, cond:x.cond, lang:x.lang, binder:x.binder, note:x.note, unsure});
+    added += x.qty;
+  }
+  touched(); ensureHistory(); renderAll();
+  return {added, failed};
+}
+$("pasteBtn").onclick = async () => {
+  const items = parseList($("paste").value), m = $("pasteMsg"); if (!items.length) { m.textContent = "Paste at least one card first."; return; }
+  $("pasteBtn").disabled = true;
+  try { const {added, failed} = await importItems(items, t => m.textContent = t);
+    m.textContent = `Added ${added} ${added === 1 ? "card" : "cards"}.` + (failed.length ? ` Not found: ${failed.slice(0, 12).join(", ")}${failed.length > 12 ? "…" : ""}` : "");
+    $("paste").value = failed.join("\n");
+  } catch { m.textContent = "Couldn't reach Scryfall. Your list is still here, so try again when you're connected."; }
+  $("pasteBtn").disabled = false;
+};
+
+/* ---------- scanning (runs in the browser with Tesseract) ---------- */
+let stream = null, ocr = null, scanHit = null;
+const OCR_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+function loadOcr() {
+  if (ocr) return ocr;
+  ocr = new Promise((res, rej) => { const s = document.createElement("script"); s.src = OCR_SRC; s.onload = res; s.onerror = () => { ocr = null; rej(new Error("reader")); }; document.head.append(s); })
+    .then(() => Tesseract.createWorker("eng"));
+  ocr.catch(() => { ocr = null; });
+  return ocr;
+}
+function cleanTitle(text) {
+  const lines = text.split("\n").map(l => l.replace(/[^A-Za-z',\- ]/g, " ").replace(/\s+/g, " ").trim()).filter(l => l.length > 2);
+  if (!lines.length) return "";
+  const best = lines.sort((a, b) => b.length - a.length)[0];
+  return best.split(" ").filter((w, i, a) => w.length > 1 || /^[aA]$/.test(w) && i && i < a.length - 1).join(" ");
+}
+function readCollector(text) {
+  const t = text.toUpperCase();
+  const set = t.match(/\b([A-Z0-9]{3,4})\s*[•·*.\-]?\s*(EN|FR|DE|ES|IT|PT|JA|KO|RU)\b/), num = t.match(/\b0*(\d{1,4})(?:\s*\/\s*\d{1,4})?\b/);
+  return set && num ? {set:set[1].toLowerCase(), cn:num[1]} : null;
+}
+function cropTo(src, x, y, w, h, scale = 1) {
+  const c = document.createElement("canvas"); c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+  const g = c.getContext("2d"); g.filter = "grayscale(1) contrast(1.35)"; g.drawImage(src, x, y, w, h, 0, 0, c.width, c.height); return c;
+}
+function frameInVideo() {
+  const v = $("video"), r = v.getBoundingClientRect(), g = document.querySelector(".guide").getBoundingClientRect();
+  const s = Math.max(r.width / v.videoWidth, r.height / v.videoHeight), ox = (v.videoWidth * s - r.width) / 2, oy = (v.videoHeight * s - r.height) / 2;
+  return {x:(g.left - r.left + ox) / s, y:(g.top - r.top + oy) / s, w:g.width / s, h:g.height / s};
+}
+async function readFrame(src, f) {
+  $("scanMsg").textContent = ocr ? "Reading card…" : "Loading the card reader. This takes a moment the first time…";
+  $("scanActions").hidden = true;
+  try {
+    const worker = await loadOcr(); $("scanMsg").textContent = "Reading card…";
+    const title = cropTo(src, f.x + f.w * .05, f.y + f.h * .038, f.w * .72, f.h * .075, Math.max(1, 1200 / (f.w * .72)));
+    const foot = cropTo(src, f.x + f.w * .03, f.y + f.h * .9, f.w * .5, f.h * .08, Math.max(1, 1000 / (f.w * .5)));
+    const a = await worker.recognize(title), b = await worker.recognize(foot);
+    await resolveScan(cleanTitle(a.data.text), readCollector(b.data.text));
+  } catch (e) { scanFailed("The card reader didn't load. Check your connection, or type the name instead.", ""); }
+}
+function scanFailed(msg, guess) { $("scanMsg").textContent = msg; $("scanCam").hidden = true; $("scanPrints").hidden = true; $("scanFix").hidden = false; $("scanActions").hidden = true; $("scanName").value = guess; $("scanName").focus(); }
+async function resolveScan(name, foot) {
+  try {
+    let hit = null;
+    if (foot) { const c = await bySetNumber(foot.set, foot.cn).catch(() => null); if (c && (!name || nameClose(name, c.name))) hit = c; }
+    let full = hit?.name;
+    if (!full && name.length > 2) { const c = await api(`/cards/named?fuzzy=${encodeURIComponent(name)}`); if (c) full = c.name; }
+    if (!full) return scanFailed(name ? `I read "${name}" but couldn't match it. Fix the name, or scan again.` : "I couldn't read that. Move closer, reduce glare, or type the name.", name);
+    await showScanPrints(full, hit);
+  } catch { scanFailed("Couldn't reach Scryfall. Check your connection and try again.", name); }
+}
+function nameClose(read, real) { const a = read.toLowerCase(), b = real.toLowerCase(); const words = a.split(" ").filter(w => w.length > 2); return !words.length || words.filter(w => b.includes(w)).length / words.length >= .5; }
+async function showScanPrints(name, hit) {
+  $("scanCam").hidden = true; $("scanFix").hidden = false; $("scanActions").hidden = true;
+  $("scanName").value = name;
+  $("scanMsg").textContent = hit ? `${name}: this looks like ${hit.setName} #${hit.cn}. Tap it to add, or pick another printing.` : `${name}: pick your printing.`;
+  const list = await printingsOf(name); await remember(list);
+  paintPrints($("scanPrints"), list, card => { const f = addAndLog(card); toast(`Added ${card.name}, ${card.setName}`); scanRestart(); }, hit?.id);
+}
+function scanRestart() { $("scanCam").hidden = !stream; $("scanFix").hidden = true; $("scanPrints").hidden = true; $("scanActions").hidden = false; $("scanMsg").textContent = stream ? "Line up the next card." : "Take a photo of the card from directly above."; $("shutter").hidden = !stream; }
+function stopCam() { stream?.getTracks().forEach(t => t.stop()); stream = null; }
+$("scanBtn").onclick = async () => {
+  $("scanDlg").showModal(); scanRestart();
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1080}}, audio:false});
+    const v = $("video"); v.srcObject = stream; await v.play(); scanRestart();
+    $("scanMsg").textContent = "Line up the card with the frame and keep its name inside the dashed box.";
+    loadOcr().catch(() => {});
+  } catch { stream = null; scanRestart(); $("scanMsg").textContent = "The live camera isn't available here. Use a photo instead, taken from directly above the card."; }
+};
+$("shutter").onclick = () => { const v = $("video"); if (v.videoWidth) readFrame(v, frameInVideo()); };
+$("scanFile").onchange = async ev => {
+  const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+  try { const bmp = await createImageBitmap(f); const r = 63 / 88, h = bmp.width / bmp.height > r ? bmp.height : bmp.width / r, w = h * r;
+    await readFrame(bmp, {x:(bmp.width - w) / 2, y:(bmp.height - h) / 2, w, h}); }
+  catch { scanFailed("That photo couldn't be opened. Try another one.", ""); }
+};
+$("scanAgain").onclick = scanRestart;
+$("scanLookup").onclick = async () => { const n = $("scanName").value.trim(); if (!n) return;
+  try { const c = await api(`/cards/named?fuzzy=${encodeURIComponent(n)}`); if (c) await showScanPrints(c.name); else $("scanMsg").textContent = `Couldn't find a card matching "${n}".`; }
+  catch { $("scanMsg").textContent = "Couldn't reach Scryfall. Check your connection and try again."; } };
+$("scanName").addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); $("scanLookup").click(); } });
+$("scanClose").onclick = () => $("scanDlg").close();
+$("scanDlg").addEventListener("close", stopCam);
+
+/* ---------- backup ---------- */
+function save(name, text, type) { const u = URL.createObjectURL(new Blob([text], {type})), a = document.createElement("a"); a.href = u; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); }
+const stamp = () => new Date().toISOString().slice(0, 10);
+const csvCell = v => /[",\n]/.test(String(v ?? "")) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? "");
+$("expJson").onclick = () => {
+  const used = new Set([...S.entries.values()].map(e => e.sid));
+  save(`longbox-backup-${stamp()}.json`, JSON.stringify({app:"longbox", version:1, saved:new Date().toISOString(), entries:[...S.entries.values()], cards:[...S.cards.values()].filter(c => used.has(c.id)), history:S.meta.history}), "application/json");
+  S.meta.backupAt = Date.now(); saveMeta(); renderBackup();
+};
+$("expCsv").onclick = () => {
+  const head = ["Name","Set code","Set","Collector number","Finish","Quantity","Condition","Language","Binder","Notes","Price each USD","Total USD","Scryfall ID"];
+  const rows = [...S.entries.values()].map(e => { const c = S.cards.get(e.sid) || {}, u = unitUsd(e); return [c.name, c.set, c.setName, c.cn, e.finish, e.qty, e.cond, e.lang, e.binder, e.note, u ?? "", u == null ? "" : (u * e.qty).toFixed(2), e.sid]; });
+  save(`longbox-${stamp()}.csv`, [head, ...rows].map(r => r.map(csvCell).join(",")).join("\r\n"), "text/csv");
+};
+$("impFile").onchange = async ev => {
+  const f = ev.target.files[0], m = $("impMsg"); ev.target.value = ""; if (!f) return;
+  try {
+    const text = await f.text();
+    if (/\.json$/i.test(f.name) || text.trim()[0] === "{") {
+      const d = JSON.parse(text); if (d.app !== "longbox" || !Array.isArray(d.entries)) throw new Error("That isn't a Longbox backup.");
+      if ($("impReplace").checked) { S.entries.clear(); await store.clear("entries"); }
+      const ok = d.entries.filter(e => e && e.sid && e.id && Number.isInteger(e.qty) && e.qty > 0).map(e => ({id:String(e.id), sid:String(e.sid), qty:e.qty, finish:FINISH[e.finish] ? e.finish : "nonfoil", cond:COND[e.cond] ? e.cond : "NM", lang:String(e.lang || "en"), binder:String(e.binder || ""), note:String(e.note || ""), unsure:!!e.unsure, added:String(e.added || new Date().toISOString())}));
+      const cards = (d.cards || []).filter(c => c && c.id && c.name && Array.isArray(c.finishes) && c.prices);
+      await remember(cards);
+      ok.forEach(e => S.entries.set(e.id, e)); await store.put("entries", ok);
+      if (Array.isArray(d.history) && d.history.length > S.meta.history.length) S.meta.history = d.history.filter(h => h && h.d && typeof h.usd === "number");
+      touched(); renderAll(); m.textContent = `Restored ${ok.length.toLocaleString()} entries.`;
+      const need = ok.filter(e => !S.cards.has(e.sid)); if (need.length) await refreshPrices(true);
+    } else {
+      const items = csvToItems(text); if (!items.length) throw new Error("I couldn't find any cards in that file.");
+      const {added, failed} = await importItems(items, t => m.textContent = t);
+      m.textContent = `Imported ${added.toLocaleString()} ${added === 1 ? "card" : "cards"}.` + (failed.length ? ` Not found: ${failed.slice(0, 12).join(", ")}${failed.length > 12 ? "…" : ""}` : "");
+    }
+  } catch (e) { m.textContent = e.message || "That file couldn't be read."; }
+};
+$("wipeBtn").onclick = () => { $("wipeBtn").hidden = true; $("wipeYes").hidden = $("wipeNo").hidden = false; };
+$("wipeNo").onclick = () => { $("wipeBtn").hidden = false; $("wipeYes").hidden = $("wipeNo").hidden = true; };
+$("wipeYes").onclick = async () => { S.entries.clear(); await store.clear("entries"); S.meta.history = []; S.meta.pricesAt = 0; await saveMeta(); $("wipeNo").click(); renderAll(); toast("Collection erased"); };
+function renderBackup() {
+  const m = S.meta, n = S.entries.size;
+  const old = n && (!m.backupAt || m.changedAt > m.backupAt);
+  $("backupState").textContent = !n ? "Nothing to back up yet." : m.backupAt ? `Last backup: ${new Date(m.backupAt).toLocaleDateString("en-CA")}.${old ? " You've made changes since then." : " You're up to date."}` : "You haven't saved a backup yet.";
+  $("rateInfo").textContent = m.rateManual ? `Using your rate of ${m.rateManual}.` : m.rateAuto ? `Using ${m.rateAuto.toFixed(4)} from ${m.rateFrom || "the exchange feed"} (${m.rateDate}).` : "No exchange rate yet, so values show in USD. Enter a rate above to use CAD.";
+}
+async function renderPersist(ask) {
+  const s = navigator.storage; if (!s?.persisted) { $("persistState").textContent = "This browser doesn't say whether it will keep your data."; $("persistBtn").hidden = true; return; }
+  if (ask) await s.persist().catch(() => {});
+  const on = await s.persisted(); $("persistState").textContent = on ? "This browser has agreed to keep your data." : "This browser may clear your data if the device runs low on space.";
+  $("persistBtn").hidden = on;
+}
+$("persistBtn").onclick = () => renderPersist(true);
+
+/* ---------- wiring ---------- */
+function renderAll(keepScroll) { buildFilterOptions(); renderHeader(); renderCollection(); renderWorth(); renderBackup(); if (!keepScroll) S.shown = Math.max(S.shown, PAGE); }
+function dirLabels() {
+  const k = $("sort").value, [d, a] = k === "name" || k === "set" ? ["Z to A", "A to Z"] : k === "added" || k === "released" ? ["Newest first", "Oldest first"] : ["High to low", "Low to high"];
+  $("dir").options[0].textContent = d; $("dir").options[1].textContent = a;
+}
+const refilter = () => { S.shown = PAGE; dirLabels(); renderCollection(); };
+["q","sort","dir","fBinder","fColor","fType","fRarity","fSet","fFinish","fMin","fMax","fUnsure"].forEach(i => $(i).addEventListener(i === "q" || i === "fMin" || i === "fMax" ? "input" : "change", refilter));
+$("sort").addEventListener("change", () => { const k = $("sort").value; $("dir").value = k === "name" || k === "set" ? "asc" : "desc"; refilter(); });
+$("fClear").onclick = () => { ["fBinder","fColor","fType","fRarity","fSet","fFinish","fMin","fMax"].forEach(i => $(i).value = ""); $("fUnsure").checked = false; refilter(); };
+$("moreBtn").onclick = () => { S.shown += PAGE; renderCollection(); };
+function setLayout(l) { S.meta.layout = l; saveMeta(); $("vGrid").setAttribute("aria-pressed", l === "grid"); $("vList").setAttribute("aria-pressed", l === "list"); renderCollection(); }
+$("vGrid").onclick = () => setLayout("grid"); $("vList").onclick = () => setLayout("list");
+document.addEventListener("click", ev => {
+  const s = ev.target.closest("[data-sort]");
+  if (s) { const k = s.dataset.sort, sel = $("sort"); if (sel.value === k) $("dir").value = $("dir").value === "asc" ? "desc" : "asc"; else { sel.value = k; $("dir").value = k === "name" || k === "set" ? "asc" : "desc"; } refilter(); return; }
+  const o = ev.target.closest("[data-open]"); if (o) openCard(o.dataset.open);
+});
+$("results").addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.matches("tr[data-open]")) openCard(ev.target.dataset.open); });
+const pref = (id, key, cb) => $(id).addEventListener("change", () => { S.meta[key] = $(id).value; saveMeta(); cb && cb(); });
+pref("aFinish","addFinish"); pref("aCond","addCond"); pref("aLang","addLang"); pref("aBinder","addBinder");
+$("aBinder").addEventListener("input", () => { S.meta.addBinder = $("aBinder").value.trim(); });
+pref("sCur","cur", renderAll);
+$("sRate").addEventListener("change", () => { const v = parseFloat($("sRate").value); S.meta.rateManual = v > 0 ? v : null; saveMeta(); renderAll(); });
+$("refreshBtn").onclick = () => refreshPrices(true);
+function route() {
+  const v = ["collection","add","worth","backup"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "collection";
+  document.querySelectorAll("section.view").forEach(s => s.hidden = s.id !== "v-" + v);
+  document.querySelectorAll("nav.tabs a").forEach(a => a.dataset.view === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  scrollTo(0, 0);
+}
+addEventListener("hashchange", route);
+
+async function boot() {
+  route();
+  try {
+    await store.open();
+    const [e, c, m] = await Promise.all([store.all("entries"), store.all("cards"), store.all("meta")]);
+    e.forEach(x => S.entries.set(x.id, x)); c.forEach(x => S.cards.set(x.id, x));
+    const saved = m.find(x => x.k === "settings"); if (saved) Object.assign(S.meta, saved.v);
+  } catch (err) { banner("This browser is blocking storage, so your cards won't be saved. A private window is the usual cause."); }
+  $("aBinder").value = S.meta.addBinder; $("aFinish").value = S.meta.addFinish; $("aCond").value = S.meta.addCond; $("aLang").value = S.meta.addLang;
+  $("sCur").value = S.meta.cur; if (S.meta.rateManual) $("sRate").value = S.meta.rateManual;
+  $("vGrid").setAttribute("aria-pressed", S.meta.layout === "grid"); $("vList").setAttribute("aria-pressed", S.meta.layout === "list");
+  renderAll(); renderPersist();
+  await fetchRate(); renderAll(true);
+  if (S.entries.size && Date.now() - S.meta.pricesAt > DAY) refreshPrices();
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+window.Longbox = {parseList, parseCSV, csvToItems, cleanTitle, readCollector};
+boot();
+</script>
+</body>
+</html>
